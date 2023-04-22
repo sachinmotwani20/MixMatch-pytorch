@@ -8,9 +8,10 @@ This repository carefully implemented important details of the official implemen
 
 
 ## Requirements
-- Python 3.6+
-- PyTorch 1.0
-- **torchvision 0.2.2 (older versions are not compatible with this code)** 
+- python 3.10.11
+- pytorch 2.0.0
+- pytorch-cuda 11.7
+- torchvision 0.15.0 
 - tensorboardX
 - progress
 - matplotlib
@@ -33,7 +34,7 @@ python train.py --gpu <gpu_id> --n-labeled 4000 --out cifar10@4000
 
 ### Running using nohup [It may run overnight]
 ```
-nohup python train.py --gpu <gpu_id> --n-labeled 1000 --out cifar10@1000 1>cifar10@1000.stdout 2>cifar10@1000.stderr
+nohup python train.py --gpu <gpu_id> --n-labeled 1000 --out cifar10@1000 1>cifar10@1000.stdout 2>cifar10@1000.stderr &
 ```
 
 ## Results (Accuracy)
