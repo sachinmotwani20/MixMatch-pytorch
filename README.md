@@ -31,9 +31,9 @@ Train the model by 4000 labeled data of CIFAR-10 dataset:
 python train.py --gpu <gpu_id> --n-labeled 4000 --out cifar10@4000
 ```
 
-### Monitoring training progress
+### Running using nohup [It may run overnight]
 ```
-tensorboard.sh --port 6006 --logdir cifar10@250
+nohup python train.py --gpu <gpu_id> --n-labeled 1000 --out cifar10@1000 1>cifar10@1000.stdout 2>cifar10@1000.stderr
 ```
 
 ## Results (Accuracy)
