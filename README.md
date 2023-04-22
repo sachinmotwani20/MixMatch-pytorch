@@ -40,9 +40,8 @@ tensorboard.sh --port 6006 --logdir cifar10@250
 | #Labels | 250 | 500 | 1000 | 2000| 4000 |
 |:---|:---:|:---:|:---:|:---:|:---:|
 |Paper | 88.92 ± 0.87 | 90.35 ± 0.94 | 92.25 ± 0.32| 92.97 ± 0.15 |93.76 ± 0.06|
-|This code | 88.71 | 88.96 | 90.52 | 92.23 | 93.52 |
-
-(Results of this code were evaluated on 1 run. Results of 5 runs with different seeds will be updated later. )
+|This code (mean) | 88.2325 | 88.96 | 90.52 | 92.23 | 93.562 |
+|This code (best) | 89.28 | 88.96 | 90.52 | 92.23 | 94.2 |
 
 ## References
 ```
