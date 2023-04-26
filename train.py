@@ -109,7 +109,7 @@ def main():
         return model
 
     model = create_model()  #Generating P-Model, notice no training has happened.
-    ema_model = create_model(ema=True) ###Why????
+    ema_model = create_model(ema=True) #To be used for customized weight decay
 
     cudnn.benchmark = True
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
