@@ -35,6 +35,11 @@ python train.py --gpu <gpu_id> --n-labeled 4000 --out cifar10@4000
 nohup python train.py --gpu <gpu_id> --n-labeled 1000 --out cifar10@1000 1>cifar10@1000.stdout 2>cifar10@1000.stderr &
 ```
 
+To check if it is running.
+```
+ps -aux | grep python | grep <username>
+```
+
 ## Results (Accuracy)
 | #Labels | 250 | 500 | 1000 | 2000| 4000 |
 |:---|:---:|:---:|:---:|:---:|:---:|
