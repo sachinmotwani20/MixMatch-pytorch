@@ -76,17 +76,20 @@ def main():
     # Data
     print(f'==> Preparing cifar10')
     transform_train = transforms.Compose([
-        dataset.RandomPadandCrop(32),
-        dataset.RandomFlip(),
+        dataset.RandomPadandCrop(32), #Augmentation
+        dataset.RandomFlip(), #Augmentation
         dataset.ToTensor(),
     ])
 
-    transform_val = transforms.Compose([
+    transform_val = transforms.Compose([  #Notice that validation set is not augmented
         dataset.ToTensor(),
     ])
 
-    train_labeled_set, train_unlabeled_set, val_set, test_set = dataset.get_cifar10('./data', args.n_labeled, transform_train=transform_train, transform_val=transform_val)
+    train_labeled_set, train_unlabeled_set, val_set, test_set = dataset.get_cifar10('./data', args.n_labeled, transform_train=transform_train, transform_val=transform_val) #Stores the data
+    
+    #Defining data loaders 
     labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=0, drop_last=True)
+    #drop_last (bool, optional) – set to True to drop the last incomplete batch,
     unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size, shuffle=True, num_workers=0, drop_last=True)
     val_loader = data.DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_workers=0)
     test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=0)
@@ -96,25 +99,26 @@ def main():
 
     def create_model(ema=False):
         model = models.WideResNet(num_classes=10)
-        model = model.cuda()
+        model = model.cuda() #Sending model to cuda (GPU).
 
-        if ema:
+        if ema: #If Exponential Moving Average (EMA) True
             for param in model.parameters():
-                param.detach_()
+                param.detach_() #Remove model param from cuda.
+                #'detach_()' is the inplace operation of 'detach()'.
 
         return model
 
-    model = create_model()
-    ema_model = create_model(ema=True)
+    model = create_model()  #Generating P-Model, notice no training has happened.
+    ema_model = create_model(ema=True) ###Why????
 
     cudnn.benchmark = True
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
 
-    train_criterion = SemiLoss()
+    train_criterion = SemiLoss() #Define an object of the Train Loss: L= Lx + lambda*Lu
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-    ema_optimizer= WeightEMA(model, ema_model, alpha=args.ema_decay)
+    ema_optimizer= WeightEMA(model, ema_model, alpha=args.ema_decay) #To be used for customized weight decay
     start_epoch = 0
 
     # Resume
@@ -138,6 +142,7 @@ def main():
     writer = SummaryWriter(args.out)
     step = 0
     test_accs = []
+
     # Train and val
     for epoch in range(start_epoch, args.epochs):
 
@@ -185,7 +190,8 @@ def main():
 
 def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch, use_cuda):
 
-    batch_time = AverageMeter()
+    batch_time = AverageMeter() #Defined class object
+    #'AverageMeter()' Computes and stores the average and current value
     data_time = AverageMeter()
     losses = AverageMeter()
     losses_x = AverageMeter()
@@ -200,7 +206,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
     model.train()
     for batch_idx in range(args.train_iteration):
         try:
-            inputs_x, targets_x = next(labeled_train_iter)
+            inputs_x, targets_x = next(labeled_train_iter) #'next()': a method for iterating over a sequence
         except:
             labeled_train_iter = iter(labeled_trainloader)
             inputs_x, targets_x = next(labeled_train_iter)
@@ -209,7 +215,9 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
             (inputs_u, inputs_u2), _ = next(unlabeled_train_iter)
         except:
             unlabeled_train_iter = iter(unlabeled_trainloader)
-            (inputs_u, inputs_u2), _ = next(unlabeled_train_iter)
+            (inputs_u, inputs_u2), _ = next(unlabeled_train_iter) #Use two successive unlabeled data at a time
+            #Perhaps, the two successive data are augmented versions of the same image 
+            #[see 'train_unlabeled_dataset' variable in 'get_cifar10' function in cifar_10.py]
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -229,22 +237,21 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
             # compute guessed labels of unlabel samples
             outputs_u = model(inputs_u)
             outputs_u2 = model(inputs_u2)
-            p = (torch.softmax(outputs_u, dim=1) + torch.softmax(outputs_u2, dim=1)) / 2
-            pt = p**(1/args.T)
-            targets_u = pt / pt.sum(dim=1, keepdim=True)
+            p = (torch.softmax(outputs_u, dim=1) + torch.softmax(outputs_u2, dim=1)) / 2 # Average predictions across all augmentations
+            pt = p**(1/args.T) #Sharpening- (1) raising to power T
+            targets_u = pt / pt.sum(dim=1, keepdim=True) #Sharpening- (2) Normailization
             targets_u = targets_u.detach()
 
         # mixup
-        all_inputs = torch.cat([inputs_x, inputs_u, inputs_u2], dim=0)
-        all_targets = torch.cat([targets_x, targets_u, targets_u], dim=0)
+        all_inputs = torch.cat([inputs_x, inputs_u, inputs_u2], dim=0) #Forming W
+        all_targets = torch.cat([targets_x, targets_u, targets_u], dim=0) #Notice: The target will remain same for both u1 and u2
 
         l = np.random.beta(args.alpha, args.alpha)
 
         l = max(l, 1-l)
 
-        idx = torch.randperm(all_inputs.size(0))
-
-        input_a, input_b = all_inputs, all_inputs[idx]
+        idx = torch.randperm(all_inputs.size(0)) #'torch.randperm' returns a random permutation of integers from 0 to n - 1.
+        input_a, input_b = all_inputs, all_inputs[idx] #Random selection of one image to mixUp with the current image
         target_a, target_b = all_targets, all_targets[idx]
 
         mixed_input = l * input_a + (1 - l) * input_b
@@ -252,9 +259,11 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
 
         # interleave labeled and unlabed samples between batches to get correct batchnorm calculation 
         mixed_input = list(torch.split(mixed_input, batch_size))
-        mixed_input = interleave(mixed_input, batch_size)
-
-        logits = [model(mixed_input[0])]
+        mixed_input = interleave(mixed_input, batch_size) 
+        
+        #---mixup over---
+        
+        logits = [model(mixed_input[0])] #Model Predictions
         for input in mixed_input[1:]:
             logits.append(model(input))
 
@@ -264,11 +273,11 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
         logits_u = torch.cat(logits[1:], dim=0)
 
         Lx, Lu, w = criterion(logits_x, mixed_target[:batch_size], logits_u, mixed_target[batch_size:], epoch+batch_idx/args.train_iteration)
-
+        #Using SemiLoss()
         loss = Lx + w * Lu
 
         # record loss
-        losses.update(loss.item(), inputs_x.size(0))
+        losses.update(loss.item(), inputs_x.size(0)) #The update() method inserts the specified items to the dictionary
         losses_x.update(Lx.item(), inputs_x.size(0))
         losses_u.update(Lu.item(), inputs_x.size(0))
         ws.update(w, inputs_x.size(0))
@@ -366,6 +375,16 @@ def linear_rampup(current, rampup_length=args.epochs):
 
 class SemiLoss(object):
     def __call__(self, outputs_x, targets_x, outputs_u, targets_u, epoch):
+        """
+        Args:
+        outputs_x: predicted outputs for labeled data
+        targets_x: GT output for labeled data
+        outputs_u: predicted outputs for unlabeled data
+        targets_u: guessed label for unlabeled data
+
+        Returns:
+
+        """
         probs_u = torch.softmax(outputs_u, dim=1)
 
         Lx = -torch.mean(torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1))
@@ -393,6 +412,7 @@ class WeightEMA(object):
                 ema_param.add_(param * one_minus_alpha)
                 # customized weight decay
                 param.mul_(1 - self.wd)
+
 
 def interleave_offsets(batch, nu):
     groups = [batch // (nu + 1)] * (nu + 1)

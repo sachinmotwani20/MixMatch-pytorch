@@ -73,7 +73,7 @@ class WideResNet(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
-                nn.init.xavier_normal_(m.weight.data)
+                nn.init.xavier_normal_(m.weight.data) #Xavier initialization
                 m.bias.data.zero_()
 
     def forward(self, x):

@@ -4,7 +4,7 @@ from PIL import Image
 import torchvision
 import torch
 
-class TransformTwice:
+class TransformTwice: #K=2 augmentations
     def __init__(self, transform):
         self.transform = transform
 
@@ -17,30 +17,47 @@ def get_cifar10(root, n_labeled,
                  transform_train=None, transform_val=None,
                  download=True):
 
-    base_dataset = torchvision.datasets.CIFAR10(root, train=True, download=download)
+    base_dataset = torchvision.datasets.CIFAR10(root, train=True, download=download) #Downloads all data
     train_labeled_idxs, train_unlabeled_idxs, val_idxs = train_val_split(base_dataset.targets, int(n_labeled/10))
 
-    train_labeled_dataset = CIFAR10_labeled(root, train_labeled_idxs, train=True, transform=transform_train)
-    train_unlabeled_dataset = CIFAR10_unlabeled(root, train_unlabeled_idxs, train=True, transform=TransformTwice(transform_train))
-    val_dataset = CIFAR10_labeled(root, val_idxs, train=True, transform=transform_val, download=True)
-    test_dataset = CIFAR10_labeled(root, train=False, transform=transform_val, download=True)
+    train_labeled_dataset = CIFAR10_labeled(root, train_labeled_idxs, train=True, transform=transform_train) #Collects labeled data and corresponding label using the provided indices
+    train_unlabeled_dataset = CIFAR10_unlabeled(root, train_unlabeled_idxs, train=True, transform=TransformTwice(transform_train)) #Collects unlabeled data using the provided indices
+    #Notice the K augmentations (K=2) transformation, all augmentations are appended in the data.
+    val_dataset = CIFAR10_labeled(root, val_idxs, train=True, transform=transform_val, download=True) #Collects labeled data and corresponding label using the provided indices
+    test_dataset = CIFAR10_labeled(root, train=False, transform=transform_val, download=True) #Collects labeled data and corresponding label using the provided indices
 
     print (f"#Labeled: {len(train_labeled_idxs)} #Unlabeled: {len(train_unlabeled_idxs)} #Val: {len(val_idxs)}")
     return train_labeled_dataset, train_unlabeled_dataset, val_dataset, test_dataset
     
 
 def train_val_split(labels, n_labeled_per_class):
+    """
+    Generates train-val split
+
+    Args:
+        labels: Labels of entire data
+        n_labeled_per _class: Number of labeled data per class as mentioned by the user
+    
+    Returns:
+        train_labeled_idxs: indexes of samples that are selected as labeled train data
+        train_unlabeled_idxs: indexes of samples that are selected as unlabeled train data
+        val_idxs: indexes of samples that are selected as val data
+    """
     labels = np.array(labels)
     train_labeled_idxs = []
     train_unlabeled_idxs = []
     val_idxs = []
 
-    for i in range(10):
-        idxs = np.where(labels == i)[0]
-        np.random.shuffle(idxs)
-        train_labeled_idxs.extend(idxs[:n_labeled_per_class])
-        train_unlabeled_idxs.extend(idxs[n_labeled_per_class:-500])
-        val_idxs.extend(idxs[-500:])
+    for i in range(10): #Iterating for each class label
+        idxs = np.where(labels == i)[0] 
+        np.random.shuffle(idxs) #Random selection 
+        ###Should have been stratified
+        
+        #The extend() method adds the specified list elements (or any iterable) to the end of the current list.
+        train_labeled_idxs.extend(idxs[:n_labeled_per_class]) #collecting labeled samples for ith label in the number mentioned by user 
+        train_unlabeled_idxs.extend(idxs[n_labeled_per_class:-500]) #collecting unlabeled samples for ith label as the remaining train data except last 500 samples
+        val_idxs.extend(idxs[-500:]) #Last 500 samples for ith label are kept as val data
+    #Shuffling datasets individually
     np.random.shuffle(train_labeled_idxs)
     np.random.shuffle(train_unlabeled_idxs)
     np.random.shuffle(val_idxs)
